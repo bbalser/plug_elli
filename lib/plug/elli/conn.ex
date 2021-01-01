@@ -18,25 +18,25 @@ defmodule Plug.Elli.Conn do
     }
   end
 
-  def send_resp(conn, status, headers, body) do
+  def send_resp(payload, status, headers, body) do
     headers = [{"content-length", to_string(byte_size(body))} | headers]
-    :ok = :elli_http.send_response(conn.req, status, headers, body)
+    :ok = :elli_http.send_response(payload.req, status, headers, body)
 
-    {:ok, nil, conn}
+    {:ok, nil, payload}
   end
 
-  def read_req_body(conn, _opts) do
-    {:ok, :elli_request.body(conn.req), conn}
+  def read_req_body(payload, _opts) do
+    {:ok, :elli_request.body(payload.req), payload}
   end
 
-  def send_chunked(conn, status, headers) do
-    stream_pid = spawn_link(Plug.Elli.Stream, :init, [conn.req, status, headers])
+  def send_chunked(payload, status, headers) do
+    stream_pid = spawn_link(Plug.Elli.Stream, :init, [payload.req, status, headers])
 
-    {:ok, nil, %{conn | stream_pid: stream_pid}}
+    {:ok, nil, %{payload | stream_pid: stream_pid}}
   end
 
-  def chunk(conn, body) do
-    :elli_request.send_chunk(conn.stream_pid, body)
+  def chunk(payload, body) do
+    :elli_request.send_chunk(payload.stream_pid, body)
 
     :ok
   end
