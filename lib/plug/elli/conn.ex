@@ -1,7 +1,10 @@
 defmodule Plug.Elli.Conn do
+
+  defstruct [:stream_pid, :req]
+
   def conn(req) do
     %Plug.Conn{
-      adapter: {__MODULE__, req},
+      adapter: {__MODULE__, %__MODULE__{req: req, stream_pid: nil}},
       host: :elli_request.host(req),
       port: :elli_request.port(req),
       method: :elli_request.method(req) |> to_string(),
@@ -15,15 +18,27 @@ defmodule Plug.Elli.Conn do
     }
   end
 
-  def send_resp(req, status, headers, body) do
+  def send_resp(conn, status, headers, body) do
     headers = [{"content-length", to_string(byte_size(body))} | headers]
-    :ok = :elli_http.send_response(req, status, headers, body)
+    :ok = :elli_http.send_response(conn.req, status, headers, body)
 
-    {:ok, nil, req}
+    {:ok, nil, conn}
   end
 
-  def read_req_body(req, _opts) do
-    {:ok, :elli_request.body(req), req}
+  def read_req_body(conn, _opts) do
+    {:ok, :elli_request.body(conn.req), conn}
+  end
+
+  def send_chunked(conn, status, headers) do
+    stream_pid = spawn_link(Plug.Elli.Stream, :init, [conn.req, status, headers])
+
+    {:ok, nil, %{conn | stream_pid: stream_pid}}
+  end
+
+  def chunk(conn, body) do
+    :elli_request.send_chunk(conn.stream_pid, body)
+
+    :ok
   end
 
   defp fix_headers(headers) do
@@ -31,4 +46,19 @@ defmodule Plug.Elli.Conn do
       {String.downcase(name), value}
     end)
   end
+end
+
+defmodule Plug.Elli.Stream do
+  import Record, only: [defrecordp: 2, extract: 2]
+  defrecordp :elli_req, extract(:req, from_lib: "elli/include/elli.hrl")
+
+  def init(req, status, headers) do
+    headers = [{"Transfer-Encoding", "chunked"} | headers]
+    socket = elli_req(req, :socket)
+    :elli_http.send_response(req, status, headers, "")
+    :elli_tcp.setopts(socket, active: :once)
+
+    :elli_http.chunk_loop(socket)
+  end
+
 end

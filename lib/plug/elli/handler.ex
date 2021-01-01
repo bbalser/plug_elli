@@ -10,6 +10,7 @@ defmodule Plug.Elli.Handler do
       req
       |> Plug.Elli.Conn.conn()
       |> plug.call(plug_opts)
+      |> maybe_close_stream()
 
     {close_or_keepalive(req, conn.resp_headers), ""}
   end
@@ -17,6 +18,14 @@ defmodule Plug.Elli.Handler do
   def handle_event(_req, _data, _args) do
     :ok
   end
+
+  defp maybe_close_stream(%Plug.Conn{adapter: {_, %Plug.Elli.Conn{stream_pid: pid}}} = conn) when is_pid(pid) do
+    :elli_request.close_chunk(pid)
+
+    conn
+  end
+
+  defp maybe_close_stream(conn), do: conn
 
   defp close_or_keepalive(req, resp_headers) do
     # TODO Not sure this is correct

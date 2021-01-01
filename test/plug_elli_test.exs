@@ -34,5 +34,11 @@ defmodule PlugElliTest do
 
       assert response.body == "created brian"
     end
+
+    test "chunks" do
+      {:ok, response} = Tesla.get("http://localhost:4000/chunks")
+
+      assert response.body == "onetwothreefourfivesix"
+    end
   end
 end
