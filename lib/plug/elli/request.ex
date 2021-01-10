@@ -1,6 +1,6 @@
 defmodule Plug.Elli.Request do
-  import Record, only: [defrecordp: 2, extract: 2]
-  defrecordp :elli_req, extract(:req, from_lib: "elli/include/elli.hrl")
+  import Record, only: [defrecord: 3, extract: 2]
+  defrecord :elli_req, :req, extract(:req, from_lib: "elli/include/elli.hrl")
 
   @connection_header "connection"
 

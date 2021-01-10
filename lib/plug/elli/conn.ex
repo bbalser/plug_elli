@@ -1,17 +1,29 @@
 defmodule Plug.Elli.Conn do
   defstruct [:stream_pid, :req]
 
-  def conn(req) do
+  import Plug.Elli.Request, only: [elli_req: 1]
+
+  def conn(
+        elli_req(
+          host: host,
+          port: port,
+          method: method,
+          scheme: scheme,
+          path: path,
+          raw_path: raw_path,
+          headers: headers
+        ) = req
+      ) do
     %Plug.Conn{
       adapter: {__MODULE__, %__MODULE__{req: req, stream_pid: nil}},
-      host: :elli_request.host(req),
-      port: :elli_request.port(req),
-      method: :elli_request.method(req) |> to_string(),
-      scheme: :elli_request.scheme(req),
-      path_info: :elli_request.path(req),
-      request_path: :elli_request.raw_path(req),
+      host: host,
+      port: port,
+      method: to_string(method),
+      scheme: scheme,
+      path_info: path,
+      request_path: raw_path,
       query_string: :elli_request.query_str(req),
-      req_headers: :elli_request.headers(req) |> fix_headers(),
+      req_headers: fix_headers(headers),
       remote_ip: :elli_request.peer(req),
       owner: self()
     }
@@ -29,8 +41,8 @@ defmodule Plug.Elli.Conn do
     {:ok, nil, payload}
   end
 
-  def read_req_body(payload, _opts) do
-    {:ok, :elli_request.body(payload.req), payload}
+  def read_req_body(%Plug.Elli.Conn{req: elli_req(body: body)} = payload, _opts) do
+    {:ok, body, payload}
   end
 
   def send_chunked(payload, status, headers) do
@@ -53,8 +65,7 @@ defmodule Plug.Elli.Conn do
 end
 
 defmodule Plug.Elli.Stream do
-  import Record, only: [defrecordp: 2, extract: 2]
-  defrecordp :elli_req, extract(:req, from_lib: "elli/include/elli.hrl")
+  import Plug.Elli.Request, only: [elli_req: 2]
 
   def init(req, status, headers) do
     headers = [{"Transfer-Encoding", "chunked"} | headers]
