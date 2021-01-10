@@ -1,5 +1,4 @@
 defmodule Plug.Elli.Conn do
-
   defstruct [:stream_pid, :req]
 
   def conn(req) do
@@ -19,7 +18,12 @@ defmodule Plug.Elli.Conn do
   end
 
   def send_resp(payload, status, headers, body) do
-    headers = [{"content-length", to_string(byte_size(body))} | headers]
+    headers = [
+      Plug.Elli.Request.connection(payload.req, headers),
+      {"content-length", to_string(byte_size(body))}
+      | headers
+    ]
+
     :ok = :elli_http.send_response(payload.req, status, headers, body)
 
     {:ok, nil, payload}
@@ -60,5 +64,4 @@ defmodule Plug.Elli.Stream do
 
     :elli_http.chunk_loop(socket)
   end
-
 end
