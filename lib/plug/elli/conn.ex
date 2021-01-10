@@ -68,7 +68,12 @@ defmodule Plug.Elli.Stream do
   import Plug.Elli.Request, only: [elli_req: 2]
 
   def init(req, status, headers) do
-    headers = [{"Transfer-Encoding", "chunked"} | headers]
+    headers = [
+      Plug.Elli.Request.connection(req, headers),
+      {"Transfer-Encoding", "chunked"}
+      | headers
+    ]
+
     socket = elli_req(req, :socket)
     :elli_http.send_response(req, status, headers, "")
     :elli_tcp.setopts(socket, active: :once)
